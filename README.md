@@ -32,5 +32,5 @@ Infura 端点注册
 ![image](https://github.com/user-attachments/assets/87994b47-9b2d-4bc9-a5de-49dd4b6518c6)
 
 监控你的 Waku 节点
-复制最后一步查看
+步骤6复制粘贴到浏览器
 ![image](https://github.com/user-attachments/assets/ab422542-c2bc-4663-980f-99a9ffbb8a36)
