@@ -1,177 +1,164 @@
 #!/bin/bash
 
-# =============================================================================
-# 脚本名称: setup_waku_node.sh
-# 描述: 自动化安装和管理 Waku 节点
-# 作者: 子清
-# 日期: 2024-10-27
-# =============================================================================
+# 定义颜色
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
+NC='\033[0m' # 无颜色
 
-# 检查是否以 root 用户运行
+# 检查是否以 root 用户运行脚本
 if [ "$(id -u)" != "0" ]; then
-    echo -e "\e[1;31m❌ 此脚本需要以root用户权限运行。请使用 'sudo -i' 切换到root用户后再次运行。\e[0m"
+    echo -e "${RED}此脚本需要以 root 用户权限运行。${NC}"
+    echo -e "${YELLOW}请尝试使用 'sudo -i' 命令切换到 root 用户，然后再次运行此脚本。${NC}"
     exit 1
 fi
 
-# 设置日志文件
-LOG_FILE="./waku_setup.log"
-if ! touch "$LOG_FILE" &> /dev/null; then
-    LOG_FILE="./waku_setup.log"
-fi
-
-# 定义颜色和样式变量
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-UNDERLINE='\033[4m'
-RESET='\033[0m'
-
-# 定义图标
-INFO_ICON="ℹ️"
-SUCCESS_ICON="✅"
-WARNING_ICON="⚠️"
-ERROR_ICON="❌"
-
-# 定义信息显示函数
-log_info() {
-    echo -e "${BLUE}${INFO_ICON} [INFO]${RESET} $1"
-    echo "[INFO] $1" >> "$LOG_FILE"
+# 下载并显示 Logo
+display_logo() {
+    curl -s https://raw.githubusercontent.com/ziqing888/logo.sh/refs/heads/main/logo.sh | bash
 }
 
-log_success() {
-    echo -e "${GREEN}${SUCCESS_ICON} [SUCCESS]${RESET} $1"
-    echo "[SUCCESS] $1" >> "$LOG_FILE"
+# 主菜单显示
+show_menu() {
+    clear
+    display_logo  # 在菜单顶部显示 Logo
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${YELLOW}            🌐 Waku 节点自动化安装菜单               ${NC}"
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${GREEN}1)${NC} 更新系统并安装依赖项"
+    echo -e "${GREEN}2)${NC} 安装 Docker 和 Docker Compose"
+    echo -e "${GREEN}3)${NC} 安装和配置节点"
+    echo -e "${GREEN}4)${NC} 查看节点日志"
+    echo -e "${GREEN}5)${NC} 更新节点"
+    echo -e "${GREEN}6)${NC} 显示节点监控链接"
+    echo -e "${GREEN}7)${NC} 退出脚本"
+    echo -e "${CYAN}======================================================${NC}"
 }
 
-log_warning() {
-    echo -e "${YELLOW}${WARNING_ICON} [WARNING]${RESET} $1"
-    echo "[WARNING] $1" >> "$LOG_FILE"
-}
-
-log_error() {
-    echo -e "${RED}${ERROR_ICON} [ERROR]${RESET} $1"
-    echo "[ERROR] $1" >> "$LOG_FILE"
-}
-
-# 设置 nwaku 目录
-SCRIPT_PATH="$HOME/nwaku-compose"
-
-# 主菜单函数
-function main_menu() {
-    while true; do
-        clear
-        # 下载并显示 logo
-        curl -s https://raw.githubusercontent.com/ziqing888/logo.sh/refs/heads/main/logo.sh | bash
-        sleep 3
-        echo -e "${CYAN}${BOLD}╔═══════════════════════════════════════════════════════════╗${RESET}"
-        echo -e "${CYAN}${BOLD}║${RESET}               🚀 ${CYAN}${BOLD}欢迎使用 Waku 节点管理脚本${RESET} 🚀              ${CYAN}${BOLD}║${RESET}"
-        echo -e "${CYAN}${BOLD}╚═══════════════════════════════════════════════════════════╝${RESET}"
-        echo -e "${BOLD}请选择您要执行的操作:${RESET}"
-        echo -e "  ${GREEN}1. ${RESET}${BOLD}安装节点${RESET}          ${INFO_ICON}"
-        echo -e "  ${YELLOW}2. ${RESET}${BOLD}修复错误${RESET}          ${WARNING_ICON}"
-        echo -e "  ${BLUE}3. ${RESET}${BOLD}更新脚本${RESET}          ${SUCCESS_ICON}"
-        echo -e "  ${CYAN}4. ${RESET}${BOLD}查看日志${RESET}          ${INFO_ICON}"
-        echo -e "  ${RED}5. ${RESET}${BOLD}退出${RESET}              ${ERROR_ICON}"
-        echo -e "${CYAN}${BOLD}============================================================${RESET}"
-        read -rp "请输入操作选项 [1-5]: " choice
-
-        case $choice in
-            1) install_node ;;
-            2) fix_errors ;;
-            3) update_script ;;
-            4) view_logs ;;
-            5) log_info "退出脚本。"; exit 0 ;;
-            *) log_warning "无效的选择，请重新选择。"; sleep 2 ;;
-        esac
-    done
-}
-
-# 安装节点工具和 Docker
-function install_node_tools() {
-    log_info "更新软件源并安装必备软件包..."
+# 更新系统并安装依赖项
+install_dependencies() {
+    echo -e "${YELLOW}更新系统并安装依赖项...${NC}"
     sudo apt update && sudo apt upgrade -y
-    log_info "安装必要的软件和 Docker..."
-    sudo apt install -y curl iptables build-essential git wget jq make gcc nano tmux htop nvme-cli pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev docker.io
+    sudo apt install -y curl iptables build-essential git wget jq make gcc nano tmux htop nvme-cli pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev
+}
 
-    # 检查 Docker Compose 安装
-    if ! command -v docker-compose &> /dev/null; then
-        log_info "安装 docker-compose..."
+# 安装 Docker 和 Docker Compose
+install_docker() {
+    echo -e "${YELLOW}检查 Docker 和 Docker Compose 是否已安装...${NC}"
+    
+    if command -v docker &> /dev/null; then
+        echo -e "${CYAN}Docker 已安装，跳过 Docker 安装步骤。${NC}"
+    else
+        echo -e "${YELLOW}安装 Docker...${NC}"
+        sudo apt install docker.io -y
+    fi
+    
+    if command -v docker-compose &> /dev/null; then
+        echo -e "${CYAN}Docker Compose 已安装，跳过 Docker Compose 安装步骤。${NC}"
+    else
+        echo -e "${YELLOW}安装 Docker Compose...${NC}"
         sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         sudo chmod +x /usr/local/bin/docker-compose
-        docker-compose --version
-    else
-        log_info "docker-compose 已安装。"
     fi
-    log_success "系统和必备软件包安装完成。"
 }
 
-# 安装 Waku 节点
-function install_node() {
-    install_node_tools  # 安装工具和 Docker
+# 检查钱包余额是否足够
+check_balance() {
+    local infura_key=$1
+    local wallet_address=$2
 
+    balance=$(curl -s -X POST -H "Content-Type: application/json" \
+      --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBalance\",\"params\":[\"$wallet_address\", \"latest\"],\"id\":1}" \
+      https://sepolia.infura.io/v3/$infura_key | jq -r '.result')
+
+    eth_balance=$(echo "scale=18; $((16#$balance)) / 10^18" | bc -l)
+    echo -e "${GREEN}钱包余额：${eth_balance} ETH${NC}"
+    if (( $(echo "$eth_balance < 0.1" | bc -l) )); then
+        echo -e "${RED}余额不足，可能会导致注册失败。请确保钱包中至少有 0.1 ETH。${NC}"
+    fi
+}
+
+# 安装和配置节点
+install_node() {
+    echo -e "${YELLOW}检查并获取 nwaku-compose 项目...${NC}"
+    
     # 克隆或更新 nwaku-compose 项目
-    if [ -d "$SCRIPT_PATH" ]; then
-        log_info "更新 nwaku-compose 项目..."
-        cd "$SCRIPT_PATH" || { log_error "进入目录失败，请检查错误信息。"; exit 1; }
+    if [ -d "nwaku-compose" ]; then
+        echo -e "${CYAN}更新 nwaku-compose 项目...${NC}"
+        cd nwaku-compose || exit
         git stash push --include-untracked
         git pull origin master
+        cd ..
     else
-        log_info "克隆 nwaku-compose 项目..."
-        git clone https://github.com/waku-org/nwaku-compose "$SCRIPT_PATH"
+        echo -e "${YELLOW}克隆 nwaku-compose 项目...${NC}"
+        git clone https://github.com/waku-org/nwaku-compose
     fi
 
-    cd "$SCRIPT_PATH" || { log_error "进入目录失败，请检查错误信息。"; exit 1; }
-
+    cd nwaku-compose || exit
     cp .env.example .env
-    log_info "配置 .env 文件..."
-    read -rp "请输入您的 Infura 项目密钥： " infura_key
-    read -rp "请输入您的测试网络私钥（不要0x开头）： " testnet_private_key
-    read -rp "请输入您的安全密钥存储密码： " keystore_password
 
+    # 提示用户输入 Infura 项目密钥和其他信息
+    read -p "请输入您的 Infura 项目密钥（key）： " infura_key
+    read -p "请输入您的测试网络私钥（不要0x开头）： " testnet_private_key
+    read -p "请输入您的安全密钥存储密码： " keystore_password
+    read -p "请输入您的钱包地址（用于检查余额）： " wallet_address
+
+    # 检查余额
+    check_balance "$infura_key" "$wallet_address"
+
+    # 正确替换 .env 文件中的相关参数
     sed -i "s|<key>|$infura_key|g" .env
     sed -i "s|<YOUR_TESTNET_PRIVATE_KEY_HERE>|$testnet_private_key|g" .env
     sed -i "s|my_secure_keystore_password|$keystore_password|g" .env
 
+    echo -e "${YELLOW}执行 register_rln.sh 脚本...${NC}"
     ./register_rln.sh
-    log_info "启动 Docker Compose 服务..."
-    docker-compose up -d || { log_error "启动 Docker Compose 失败，请检查错误信息。"; exit 1; }
-    log_success "Waku 节点已成功安装并启动。"
-    read -rp "按 Enter 返回菜单。"
+
+    echo -e "${YELLOW}启动 Docker Compose 服务...${NC}"
+    docker-compose up -d
+    echo -e "${CYAN}Docker Compose 服务启动完成。${NC}"
 }
 
-# 查看日志函数
-function view_logs() {
-    log_info "查看 Waku 节点日志..."
-    cd "$SCRIPT_PATH" || { log_error "无法进入目录，请检查错误信息。"; exit 1; }
+# 查看日志
+view_logs() {
+    echo -e "${YELLOW}正在查看节点日志...${NC}"
+    cd nwaku-compose || exit
     docker-compose logs -f nwaku
-    log_info "按 Ctrl+C 退出日志查看。"
+    echo -e "${CYAN}按 Ctrl+C 退出日志查看。${NC}"
 }
 
-# 修复错误函数
-function fix_errors() {
-    cd "$SCRIPT_PATH" || { log_error "无法进入目录，请检查错误信息。"; exit 1; }
-    docker-compose down
-    git stash push --include-untracked
-    git pull origin master
-    rm -rf keystore rln_tree
-    nano .env
-    docker-compose up -d || { log_error "启动 Docker Compose 失败，请检查错误信息。"; exit 1; }
-    log_success "错误修复完成。"
-    read -rp "按 Enter 返回菜单。"
-}
-
-# 更新脚本函数
-function update_script() {
-    cd "$SCRIPT_PATH" || { log_error "无法进入目录，请检查错误信息。"; exit 1; }
+# 更新脚本
+update_script() {
+    echo -e "${YELLOW}更新并重启 nwaku-compose 项目...${NC}"
+    cd nwaku-compose || exit
     docker-compose down
     git pull origin master
-    docker-compose up -d || { log_error "启动 Docker Compose 失败，请检查错误信息。"; exit 1; }
-    log_success "脚本更新完成。"
-    read -rp "按 Enter 返回菜单。"
+    docker-compose up -d
+    echo -e "${CYAN}脚本更新完成。${NC}"
 }
 
-# 启动主程序
-main_menu
+# 显示节点监控链接
+show_monitoring_link() {
+    SERVER_IP=$(curl -s http://checkip.amazonaws.com)
+    echo -e "${GREEN}您的节点监控链接如下：${NC}"
+    echo -e "${CYAN}http://$SERVER_IP:3000/d/yns_4vFVk/nwaku-monitoring${NC}"
+    echo -e "${YELLOW}在浏览器中访问此链接以查看节点状态。${NC}"
+}
+
+# 主程序循环
+while true; do
+    show_menu
+    read -p "请选择操作 [1-7]: " choice
+    case $choice in
+        1) install_dependencies ;;
+        2) install_docker ;;
+        3) install_node ;;
+        4) view_logs ;;
+        5) update_script ;;
+        6) show_monitoring_link ;;
+        7) echo -e "${RED}退出脚本。${NC}"; exit 0 ;;
+        *) echo -e "${RED}无效选择，请重试。${NC}" ;;
+    esac
+    read -n 1 -s -r -p "按任意键返回主菜单..."
+done
